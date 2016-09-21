@@ -1,0 +1,104 @@
+#!/usr/bin/env python
+try:
+    from mpi4py import *
+    rank = MPI.COMM_WORLD.Get_rank()
+    n_ranks = MPI.COMM_WORLD.Get_size()
+except:
+    rank = 0
+    n_ranks = 1
+from teca import *
+from teca_max_wind_loc_2d import *
+import numpy as np
+import sys
+import os
+import argparse
+
+#set teca's internal error handler
+set_stack_trace_on_error()
+
+# parse the command line
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--input_regex', type=str, default='.*\.nc',
+     help='a regular expression pointing to the dataset to process')
+
+parser.add_argument('--output_file', type=str,
+    default='./max_wind_jet.csv', help='output file name')
+
+parser.add_argument('--bounds', nargs='+', type=float,
+    default=[60.0, 160.0, 0.0, 70.0], help='lat lon bounds to ' \
+    'detect over [lon 0, lon 1, lat 0, lat 1]')
+
+parser.add_argument('--level', type=float,
+    default=200.0, help='pressure level to detect at')
+
+parser.add_argument('--wind_u_var', type=str,
+    default='U', help='variable name of U component of the wind')
+
+parser.add_argument('--wind_v_var', type=str,
+    default='U', help='variable name of V component of the wind')
+
+parser.add_argument('--first_step', type=int,
+    default=0, help='first time step to process')
+
+parser.add_argument('--last_step', type=int,
+    default=-1, help='last time step to process')
+
+parser.add_argument('--n_threads', type=int,
+    default=1, help='number of threads')
+
+parser.add_argument('-d', '--dpi', type=int,
+    default=100, help='output image DPI')
+
+parser.add_argument('-i', '--interact', action='store_true',
+    help='display plots in pop-up windows')
+
+parser.add_argument('-p', '--plot', action='store_true',
+    help='generate plots')
+
+args = parser.parse_args()
+
+# configure matplotlib
+if args.plot and not args.interact:
+    import matplotlib
+    matplotlib.use('Agg')
+
+cfr = teca_cf_reader.New()
+cfr.set_files_regex(args.input_regex)
+cfr.set_x_axis_variable('lon')
+cfr.set_y_axis_variable('lat')
+cfr.set_z_axis_variable('plev')
+cfr.set_t_axis_variable('time')
+
+l2 = teca_l2_norm.New()
+l2.set_input_connection(cfr.get_output_port())
+l2.set_component_0_variable(args.wind_u_var)
+l2.set_component_1_variable(args.wind_v_var)
+l2.set_l2_norm_variable('wind_speed')
+
+jet_detect = teca_max_wind_loc_2d.New()
+jet_detect.set_wind_speed_variable('wind_speed')
+jet_detect.set_bounds(args.bounds)
+jet_detect.set_level(args.level)
+jet_detect.set_interact(args.interact)
+jet_detect.set_plot(args.plot)
+jet_detect.set_input_connection(l2.get_output_port())
+
+mr = teca_table_reduce.New()
+mr.set_input_connection(jet_detect.get_output_port())
+mr.set_first_step(args.first_step)
+mr.set_last_step(args.last_step)
+mr.set_thread_pool_size(args.n_threads)
+
+sort = teca_table_sort.New()
+sort.set_input_connection(mr.get_output_port())
+sort.set_index_column('time')
+
+cal = teca_table_calendar.New()
+cal.set_input_connection(sort.get_output_port())
+
+tw = teca_table_writer.New()
+tw.set_input_connection(cal.get_output_port())
+tw.set_file_name(args.output_file)
+
+tw.update()
