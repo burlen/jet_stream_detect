@@ -2,15 +2,11 @@ from teca import *
 import numpy as np
 import sys
 
-class teca_max_wind_cc_2d:
+class teca_max_wind_cc_2d(teca_python_algorithm):
     """
     A class for locating the jet stream using the maximum
     value of wind speed in a plane at each longitude.
     """
-    @staticmethod
-    def New():
-        return teca_max_wind_cc_2d()
-
     def __init__(self):
         self.bounds = [0.0, 360.0, -90.0, 90.0]
         self.level = 0.0
@@ -19,13 +15,6 @@ class teca_max_wind_cc_2d:
         self.plot = False
         self.interact = False
         self.dpi = 100
-        self.impl = teca_programmable_algorithm.New()
-        self.impl.set_number_of_input_connections(1)
-        self.impl.set_number_of_output_ports(1)
-        self.impl.set_request_callback( \
-            teca_max_wind_cc_2d.get_request_callback(self))
-        self.impl.set_execute_callback( \
-            teca_max_wind_cc_2d.get_execute_callback(self))
 
     def __str__(self):
         return 'bounds=%s, level=%f, wind_speed_variable=%s'%( \
@@ -75,26 +64,7 @@ class teca_max_wind_cc_2d:
         """
         self.plot = plot
 
-    def set_input_connection(self, obj):
-        """
-        set the input
-        """
-        self.impl.set_input_connection(obj)
-
-    def get_output_port(self):
-        """
-        get the output
-        """
-        return self.impl.get_output_port()
-
-    def update(self):
-        """
-        execute the pipeline from this algorithm up.
-        """
-        self.impl.update()
-
-    @staticmethod
-    def get_request_callback(state):
+    def get_request_callback(self):
         """
         returns the function that implements the request
         phase of the TECA pipeline.
@@ -104,13 +74,12 @@ class teca_max_wind_cc_2d:
         """
         def request(port, md_in, req_in):
             req = teca_metadata(req_in)
-            req['arrays'] = [state.wind_speed_variable]
-            req['bounds'] = state.bounds + [state.level]*2
+            req['arrays'] = [self.wind_speed_variable]
+            req['bounds'] = self.bounds + [self.level]*2
             return [req]
         return request
 
-    @staticmethod
-    def get_execute_callback(state):
+    def get_execute_callback(self):
         """
         returns the function that implements the execute
         phase of the TECA pipeline.
@@ -121,7 +90,7 @@ class teca_max_wind_cc_2d:
             sys.stderr.write('.')
 
             # set up for plotting
-            if state.plot:
+            if self.plot:
                 import matplotlib.pyplot as plt
                 import matplotlib.patches as plt_mp
                 import matplotlib.image as plt_img
@@ -155,13 +124,13 @@ class teca_max_wind_cc_2d:
 
             # get the wind speed values as an numpy array
             wind = mesh.get_point_arrays().get( \
-                    state.wind_speed_variable).as_array()
+                    self.wind_speed_variable).as_array()
 
             wind = wind.reshape([nlat, nlon])
 
             # get the labels
             labels = mesh.get_point_arrays().get( \
-                state.label_variable).as_array()
+                self.label_variable).as_array()
 
             imlabels = labels.reshape([nlat, nlon])
 
@@ -193,7 +162,7 @@ class teca_max_wind_cc_2d:
 
             fig = None
             imext = []
-            if state.plot:
+            if self.plot:
                 # load the wind field
                 imext = [lon[0], lon[-1], lat[0], lat[-1]]
                 fig = plt.figure(figsize=(6.4, 4.8))
@@ -215,7 +184,7 @@ class teca_max_wind_cc_2d:
                 max_id = np.unravel_index(candidate_wind.argmax(), wind.shape)
                 max_val = np.max(candidate_wind[lat_ids, np.arange(nlon)])
 
-                if state.plot:
+                if self.plot:
                     plt.plot(lon, lat[lat_ids], '--', color='#ff00ba', linewidth=2)
 
                     plt.contour(candidate_mask[i], colors='w', \
@@ -226,9 +195,9 @@ class teca_max_wind_cc_2d:
 
                 i += 1
 
-            if state.plot:
-                plt.savefig('max_wind_cc_2d_%06d.png'%(step), dpi=state.dpi)
-                if state.interact:
+            if self.plot:
+                plt.savefig('max_wind_cc_2d_%06d.png'%(step), dpi=self.dpi)
+                if self.interact:
                     plt.show()
                 plt.close(fig)
 

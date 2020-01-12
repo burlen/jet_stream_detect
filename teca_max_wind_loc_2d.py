@@ -2,14 +2,11 @@ from teca import *
 import numpy as np
 import sys
 
-class teca_max_wind_loc_2d:
+class teca_max_wind_loc_2d(teca_python_algorithm):
     """
     A class for locating the jet stream using the maximum
     value of wind speed in a plane at each longitude.
     """
-    @staticmethod
-    def New():
-        return teca_max_wind_loc_2d()
 
     def __init__(self):
         self.bounds = [0.0, 360.0, -90.0, 90.0]
@@ -18,13 +15,6 @@ class teca_max_wind_loc_2d:
         self.plot = False
         self.interact = False
         self.dpi = 100
-        self.impl = teca_programmable_algorithm.New()
-        self.impl.set_number_of_input_connections(1)
-        self.impl.set_number_of_output_ports(1)
-        self.impl.set_request_callback( \
-            teca_max_wind_loc_2d.get_request_callback(self))
-        self.impl.set_execute_callback( \
-            teca_max_wind_loc_2d.get_execute_callback(self))
 
     def __str__(self):
         return 'bounds=%s, level=%f, wind_speed_variable=%s'%( \
@@ -68,25 +58,6 @@ class teca_max_wind_loc_2d:
         """
         self.plot = plot
 
-    def set_input_connection(self, obj):
-        """
-        set the input
-        """
-        self.impl.set_input_connection(obj)
-
-    def get_output_port(self):
-        """
-        get the output
-        """
-        return self.impl.get_output_port()
-
-    def update(self):
-        """
-        execute the pipeline from this algorithm up.
-        """
-        self.impl.update()
-
-    @staticmethod
     def get_request_callback(state):
 	    """
 	    returns the function that implements the request
@@ -102,7 +73,6 @@ class teca_max_wind_loc_2d:
 	        return [req]
 	    return request
 
-    @staticmethod
     def get_execute_callback(state):
 	    """
 	    returns the function that implements the execute
