@@ -88,6 +88,7 @@ class teca_max_wind_cc_2d(teca_python_algorithm):
         """
         def execute(port, data_in, req):
             sys.stderr.write('.')
+            sys.stderr.flush()
 
             # set up for plotting
             if self.plot:
@@ -167,7 +168,6 @@ class teca_max_wind_cc_2d(teca_python_algorithm):
                 imext = [lon[0], lon[-1], lat[0], lat[-1]]
                 fig = plt.figure(figsize=(6.4, 4.8))
                 plt.imshow(wind, aspect='auto', extent=imext, origin='lower')
-                plt.hold(True)
                 plt.xlabel('deg lon')
                 plt.ylabel('deg lat')
                 plt.title('max wind cc 2d\nn_candidates=%d step=%d'%(n_candidates, step))
