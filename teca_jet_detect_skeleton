@@ -1,79 +1,77 @@
 #!/usr/bin/env python3
-try:
-    from mpi4py import *
-    rank = MPI.COMM_WORLD.Get_rank()
-    n_ranks = MPI.COMM_WORLD.Get_size()
-except:
-    rank = 0
-    n_ranks = 1
+from mpi4py import *
 from teca import *
 from teca_topological_spine import *
+from teca_jet_stream_sinuosity import *
 import numpy as np
-import sys
-import os
-import argparse
+import sys, os, argparse
 
-#set teca's internal error handler
-set_stack_trace_on_error()
+def parse_command_line():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--input_regex', type=str, default='.*\.nc',
+         help='a regular expression pointing to the dataset to process')
+
+    parser.add_argument('--output_image', type=str,
+        default='skeleton_', help='output image file name')
+
+    parser.add_argument('--output_file', type=str,
+        default='./max_wind_jet.csv', help='output file name')
+
+    parser.add_argument('--bounds', nargs='+', type=float,
+        default=None, help='lat lon bounds to ' \
+        'detect over [lon 0, lon 1, lat 0, lat 1]')
+
+    parser.add_argument('--level', type=float,
+        default=200.0, help='pressure level to detect at')
+
+    parser.add_argument('--wind_u_var', type=str,
+        default='U', help='variable name of U component of the wind')
+
+    parser.add_argument('--wind_v_var', type=str,
+        default='U', help='variable name of V component of the wind')
+
+    parser.add_argument('--wind_threshold', type=float,
+        default=30.0, help='threshold for segmentation of wind speed (m/s)')
+
+    parser.add_argument('--area_threshold', type=float,
+        default=0.0, help='removes features with area smaller than this (km^2)')
+
+    parser.add_argument('--first_step', type=int,
+        default=0, help='first time step to process')
+
+    parser.add_argument('--last_step', type=int,
+        default=-1, help='last time step to process')
+
+    parser.add_argument('--n_threads', type=int,
+        default=1, help='number of threads')
+
+    parser.add_argument('-d', '--dpi', type=int,
+        default=100, help='output image DPI')
+
+    parser.add_argument('-i', '--interact', action='store_true',
+        help='display plots in pop-up windows')
+
+    parser.add_argument('-p', '--plot', action='store_true',
+        help='generate plots')
+
+    args = parser.parse_args()
+
+    # configure matplotlib
+    if args.plot and not args.interact:
+        import matplotlib
+        matplotlib.use('Agg')
+
+    #set teca's internal error handler
+    set_stack_trace_on_error()
+
+    return args
+
 
 # parse the command line
-parser = argparse.ArgumentParser()
+args = parse_command_line()
 
-parser.add_argument('--input_regex', type=str, default='.*\.nc',
-     help='a regular expression pointing to the dataset to process')
-
-parser.add_argument('--output_image', type=str,
-    default='skeleton_', help='output image file name')
-
-parser.add_argument('--output_file', type=str,
-    default='./max_wind_jet.csv', help='output file name')
-
-parser.add_argument('--bounds', nargs='+', type=float,
-    default=None, help='lat lon bounds to ' \
-    'detect over [lon 0, lon 1, lat 0, lat 1]')
-
-parser.add_argument('--level', type=float,
-    default=200.0, help='pressure level to detect at')
-
-parser.add_argument('--wind_u_var', type=str,
-    default='U', help='variable name of U component of the wind')
-
-parser.add_argument('--wind_v_var', type=str,
-    default='U', help='variable name of V component of the wind')
-
-parser.add_argument('--wind_threshold', type=float,
-    default=30.0, help='threshold for segmentation of wind speed (m/s)')
-
-parser.add_argument('--area_threshold', type=float,
-    default=0.0, help='removes features with area smaller than this (km^2)')
-
-parser.add_argument('--first_step', type=int,
-    default=0, help='first time step to process')
-
-parser.add_argument('--last_step', type=int,
-    default=-1, help='last time step to process')
-
-parser.add_argument('--n_threads', type=int,
-    default=1, help='number of threads')
-
-parser.add_argument('-d', '--dpi', type=int,
-    default=100, help='output image DPI')
-
-parser.add_argument('-i', '--interact', action='store_true',
-    help='display plots in pop-up windows')
-
-parser.add_argument('-p', '--plot', action='store_true',
-    help='generate plots')
-
-args = parser.parse_args()
-
-# configure matplotlib
-if args.plot and not args.interact:
-    import matplotlib
-    matplotlib.use('Agg')
-
-print(get_teca_version_descr())
-
+# build and configure the pipeline starting with the CF2 reader
 cfr = teca_cf_reader.New()
 cfr.set_files_regex(args.input_regex)
 cfr.set_x_axis_variable('lon')
@@ -115,25 +113,33 @@ caf.set_variable_post_fix('_masked')
 caf.set_low_area_threshold(args.area_threshold)
 
 # compute the topological spine of each remaining piece
-skel = teca_topological_spine.New()
-skel.set_input_connection(caf.get_output_port())
-skel.set_label_variable('labels_masked')
-skel.set_scalar_variable('wind_speed')
-skel.set_bounds(args.bounds)
-skel.set_level(args.level)
-skel.set_interact(args.interact)
-skel.set_out_file(args.output_image)
-skel.set_plot(args.plot)
-skel.set_dpi(args.dpi)
+ts = teca_topological_spine.New()
+ts.set_input_connection(caf.get_output_port())
+ts.set_label_variable('labels_masked')
+ts.set_scalar_variable('wind_speed')
+ts.set_bounds(args.bounds)
+ts.set_level(args.level)
+ts.set_out_file(args.output_image)
+ts.set_interact(args.interact)
+ts.set_plot(args.plot)
+ts.set_dpi(args.dpi)
+
+# compute sinuosity
+jss = teca_jet_stream_sinuosity.New()
+jss.set_input_connection(ts.get_output_port())
+jss.set_out_file(args.output_image)
+jss.set_interact(args.interact)
+jss.set_plot(args.plot)
+jss.set_dpi(args.dpi)
 
 # map reduce execution pattern
 mr = teca_table_reduce.New()
-mr.set_input_connection(skel.get_output_port())
+mr.set_input_connection(jss.get_output_port())
 mr.set_start_index(args.first_step)
 mr.set_end_index(args.last_step)
 mr.set_thread_pool_size(args.n_threads)
 
-# fix the order
+# order the results
 sort = teca_table_sort.New()
 sort.set_input_connection(mr.get_output_port())
 sort.set_index_column('gid')
@@ -149,3 +155,6 @@ tw.set_file_name(args.output_file)
 
 # run the pipeline
 tw.update()
+
+
+
