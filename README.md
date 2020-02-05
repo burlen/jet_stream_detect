@@ -39,8 +39,7 @@ results.
 ```bash
 mpiexec -np 10 ./teca_jet_stream_sinuosity \
     --input_regex=/home/bloring/work/teca/jet_stream_data/cam5_1_amip_run2'.*\.nc'  \
-    --first_step=0 --last_step=-1  --output_file=tut_demo_30/sinuosity.bin \
-    --output_image=tut_demo_sub/tut_demo_30 --dpi=150 --area_threshold 7.e6
+    --output_file=tut_demo_30/sinuosity.bin --area_threshold 7.e6
 
 python plot_sinuosity.py tut_demo_30/sinuosity.bin tut_demo_30/sinuosity.png
 ```
