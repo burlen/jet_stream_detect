@@ -7,7 +7,9 @@ teca_component_area_filter, teca_topological_spine, teca_jet_stream_sinuosity,
 teca_table_reduce, teca_table_sort, teca_table_calendar, teca_table_writer) and
 2 new customized algoritghms written in Python (teca_topological_spine.py,
 teca_jet_stream_sinuosity.py). The demo comes with a command line application
-(teca_jet_stream_sinuosity) that constructs and runs the pipeline.
+(teca_jet_stream_sinuosity) that constructs and runs the pipeline. A second
+script (plot_sinusoty.py) illustrates how to read in the resulting table and
+access the data. This demo has been tested with TECA version 3.0.0.
 
 ## Segmentation and topological spine
 ![Segmentation and topological spine](/images/tut_demo_sub_spine_and_wind_000166.png)
