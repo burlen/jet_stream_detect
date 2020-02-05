@@ -31,14 +31,15 @@ sh = np.where(hemisphere == 1)[0]
 
 num_cols = 2 if len(nh) > 0 and len(sh) > 0 else 1
 
+fig = plt.figure(figsize=(8.0, 4.0))
 if num_cols == 2:
     plt.subplot(1,2,1)
 
 if len(nh) > 0:
     plt.plot(time[nh], sinuosity[nh], 'g-', linewidth=2)
-    plt.xlabel('time', fontweight='bold')
-    plt.ylabel('sinuosity', fontweight='bold')
-    plt.title('Jet Stream Sinuosity (NH)\nRegion %s'%(str(bounds)), fontweight='bold')
+    plt.xlabel('time (%s)'%(time_units))
+    plt.ylabel('sinuosity')
+    plt.title('Jet Stream Sinuosity (NH)\nRegion %s'%(str(bounds)))
     plt.grid(True)
 
 if num_cols == 2:
@@ -46,9 +47,9 @@ if num_cols == 2:
 
 if len(sh) > 0:
     plt.plot(time[sh], sinuosity[sh], 'b-', linewidth=2)
-    plt.xlabel('time (%s)'%(time_units), fontweight='bold')
-    plt.ylabel('sinuosity', fontweight='bold')
-    plt.title('Jet Stream Sinuosity (SH)\nRegion %s'%(str(bounds)), fontweight='bold')
+    plt.xlabel('time (%s)'%(time_units))
+    plt.ylabel('sinuosity')
+    plt.title('Jet Stream Sinuosity (SH)\nRegion %s'%(str(bounds)))
     plt.grid(True)
 
 
