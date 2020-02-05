@@ -15,7 +15,7 @@ access the data. This demo has been tested with TECA version 3.0.0.
 ![Segmentation and topological spine](/images/tut_demo_sub_spine_and_wind_000166.png)
 We use a binary segmentation of wind speed(30 m/s) high in the atmosphere(200
 hPa) followed by a medial axis transform followed by a pruning step to compute
-a topological spine of the jet stream. The segmentation is bound by black
+a topological spine of the jet stream. In the above figure the segmentation is bound by black
 lines, wind speed is shown by pseudocolor, and topological spine is shown as a
 green line.
 
@@ -25,14 +25,15 @@ We compute the sinuosity by dividing the length along the topological spine by
 the length between it's most easterly and westerly points. Ties in the
 end-points are resolved by taking the longer length between most easterly and
 westerly points. Lengths are calculated using Vincenty's formula for great
-circle distance.
+circle distance. In the above figure the green line shows the spine and the
+yellow line shows the distance between westerly and easterly points.
 
 ## Result
 ![Result](images/sinuosity.png)
 The command line application runs in parallel and produces a table of sinuosity
 with a row for northern hemisphere and southern hemisphere for each step in the
 input dataset. A second app can be used to load this table and plot the
-results.
+results as shown in the above figure.
 
 ## How to run the code
 
