@@ -5,7 +5,7 @@ import sys
 import math
 
 Re = 6371.0088 #km
-pi = 3.14159265358979
+pi = np.pi #3.14159265358979
 pi_over_180 = pi/180.
 pi_over_2 = pi/2.
 
@@ -73,7 +73,12 @@ def great_circle_distance_1(deg_lat_0, deg_lon_0, deg_lat_1, deg_lon_1, R=Re):
 
 great_circle_distance = great_circle_distance_1
 
+def parallel_distance(lat, R = Re):
+    """ Calculates the length of a parallel at the given latitude `lat' """
 
+    lat_rad = pi_over_180 * lat
+
+    return 2 * pi * R * np.cos(lat_rad)
 
 
 
@@ -210,6 +215,9 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                 lat_e_sh = sys.float_info.min
                 lon_e_sh = sys.float_info.min
 
+                mean_lat_nh = 0
+                mean_lat_sh = 0
+
                 arc_len_nh = 0.
                 arc_len_sh = 0.
 
@@ -260,6 +268,7 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                             lon_e_nh = lon_e
 
                         arc_len_nh += arc_len
+                        mean_lat_nh = np.mean(lat_ij)
                     else:
                         if (lon_s < lon_s_sh) or (np.isclose(lon_s, lon_s_sh) and \
                             (great_circle_distance(lat_s, lon_s, lat_e_sh, lon_e_sh) > \
@@ -273,56 +282,62 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                             lon_e_sh = lon_e
 
                         arc_len_sh += arc_len
+                        mean_lat_sh = np.mean(lat_ij)
 
                     if self.plot:
                         plt.plot(lon_ij, lat_ij, 'g' if nh else 'b', linewidth=2)
 
 
-                # norther hemishpere
+                # northern hemishpere
                 gid_i = 1000000*step_i + gid
 
                 if arc_len_nh > 0.:
 
-                    direct_len_nh = great_circle_distance(lat_s_nh, lon_s_nh, lat_e_nh, lon_e_nh)
+                    # calculate the direct length as the length of a parallel at the mean latitude of the jet
+                    direct_len_nh = parallel_distance(mean_lat_nh)
+
                     sinuosity_nh = arc_len_nh/direct_len_nh
 
-                    table_out << step_i << time_i << gid_i << 0 << lat_s_nh << lon_s_nh \
-                        << lat_e_nh << lat_e_nh << arc_len_nh << direct_len_nh << sinuosity_nh
+                    table_out << step_i << time_i << gid_i << 0 << mean_lat_nh << \
+                            arc_len_nh << direct_len_nh << sinuosity_nh
 
                     #sys.stderr.write('s= %g, %g   e= %g, %g  d=%g\n'%(lat_s_nh, lon_s_nh, lat_e_nh, lon_e_nh, great_circle_distance(-lat_s_nh, lon_s_nh, -lat_e_nh, lon_e_nh, Re)))
                     #sys.stderr.write('NH, step=%d arc_len=%g direct_len=%g sinuosity=%g\n'%(step_i, arc_len_nh, direct_len_nh, sinuosity_nh))
 
                     gid += 1
 
-                # suthern hemisphere
+                # southern hemisphere
                 if arc_len_sh > 0.:
                     gid_i = 1000000*step_i + gid
 
-                    direct_len_sh = great_circle_distance(lat_s_sh, lon_s_sh, lat_e_sh, lon_e_sh)
+                    # calculate the direct length as the length of a parallel at the mean latitude of the jet
+                    direct_len_sh = parallel_distance(mean_lat_sh)
+
                     sinuosity_sh = arc_len_sh/direct_len_sh
 
                     #sys.stderr.write('s= %g, %g   e= %g, %g  d=%g\n'%(lat_s_sh, lon_s_sh, lat_e_sh, lon_e_sh, great_circle_distance(lat_s_sh, lon_s_sh, lat_e_sh, lon_e_sh, Re)))
                     #sys.stderr.write('SH, step=%d arc_len=%g direct_len=%g sinuosity=%g\n'%(step_i, arc_len_sh, direct_len_sh, sinuosity_sh))
 
-                    table_out << step_i << time_i << gid_i << 1 << lat_s_sh << lon_s_sh \
-                        << lat_e_sh << lat_e_sh << arc_len_sh << direct_len_sh << sinuosity_sh
+                    table_out << step_i << time_i << gid_i << 1 << mean_lat_sh << \
+                            arc_len_sh << direct_len_sh << sinuosity_sh
 
                     gid += 1
+
+
+                print(mean_lat_nh, mean_lat_sh)
 
                 # plot for the tutorial/demo
                 if self.plot:
                     if arc_len_nh > 0.:
-                        plt.plot([lon_s_nh, lon_e_nh], [lat_s_nh, lat_e_nh], 'y--o', \
+                        plt.plot([0, 360], [mean_lat_nh, mean_lat_nh], 'y--o', \
                             linewidth=2, mec='y', mfc=(0.,0.,0.,0.), mew=2)
 
                     if arc_len_sh > 0.:
-                        plt.plot([lon_s_sh, lon_e_sh], [lat_s_sh, lat_e_sh], 'c--o', \
+                        plt.plot([0, 360], [mean_lat_sh, mean_lat_sh], 'c--o', \
                             linewidth=2, mec='c', mfc=(0.,0.,0.,0.), mew=2)
 
                     plt.axis('equal')
                     plt.grid(True)
-                    #plt.xlim(min(lon_s_nh, lon_s_sh), max(lon_e_nh, lon_e_sh))
-                    #plt.ylim(min(lat_s_nh, lat_s_sh), max(lat_e_nh, lat_e_sh))
                     plt.title('Sinuosity NH=%g SH=%g step %d'%(sinuosity_nh, sinuosity_sh, step_i))
                     plt.xlabel('deg lon')
                     plt.ylabel('deg lat')
