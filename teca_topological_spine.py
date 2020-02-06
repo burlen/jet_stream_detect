@@ -17,7 +17,7 @@ class teca_topological_spine(teca_python_algorithm):
     def __init__(self):
         self.label_variable = 'labels'
         self.scalar_variable = None
-        self.out_file = 'skel_'
+        self.out_file = 'topological_spine'
         self.num_ghosts = 16
         self.bounds = None
         self.level = 0.0
@@ -26,9 +26,6 @@ class teca_topological_spine(teca_python_algorithm):
         self.dpi = 100
         self.verbose = False
         self.tex = None
-        if get_teca_has_data():
-            tex_file = '%s/earthmap4kgy.png'%(get_teca_data_root())
-            self.tex = plt.imread(tex_file)
 
     def set_num_ghosts(self, n):
         """
@@ -86,6 +83,9 @@ class teca_topological_spine(teca_python_algorithm):
         If true then plots are generated
         """
         self.plot = plot
+        if self.plot and get_teca_has_data():
+            tex_file = '%s/earthmap4k.png'%(get_teca_data_root())
+            self.tex = plt.imread(tex_file)
 
     def get_report_callback_tmp(self):
         """

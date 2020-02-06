@@ -93,9 +93,6 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
         self.dpi = 100
         self.verbose = False
         self.tex = None
-        if get_teca_has_data():
-            tex_file = '%s/earthmap4kgy.png'%(get_teca_data_root())
-            self.tex = plt.imread(tex_file)
 
     def set_num_ghosts(self, n):
         """
@@ -153,6 +150,9 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
         If true then plots are generated
         """
         self.plot = plot
+        if self.plot and get_teca_has_data():
+            tex_file = '%s/earthmap4k.png'%(get_teca_data_root())
+            self.tex = plt.imread(tex_file)
 
     def get_execute_callback(self):
         """
@@ -323,7 +323,7 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                     plt.grid(True)
                     #plt.xlim(min(lon_s_nh, lon_s_sh), max(lon_e_nh, lon_e_sh))
                     #plt.ylim(min(lat_s_nh, lat_s_sh), max(lat_e_nh, lat_e_sh))
-                    plt.title('Sinuosity step %d'%(step_i))
+                    plt.title('Sinuosity NH=%g SH=%g step %d'%(sinuosity_nh, sinuosity_sh, step_i))
                     plt.xlabel('deg lon')
                     plt.ylabel('deg lat')
                     if  self.interact:
