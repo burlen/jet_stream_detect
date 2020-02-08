@@ -12,19 +12,19 @@ script (plot_sinusoty.py) illustrates how to read in the resulting table and
 access the data. This demo has been tested with TECA version 3.0.0.
 
 ## Segmentation and topological spine
-![Segmentation and topological spine](/images/tut_demo_sub_spine_and_wind_000166.png)
+![Segmentation and topological spine](/images/deb_spine_and_wind_000026.png)
 We use a binary segmentation of wind speed(30 m/s) high in the atmosphere(200
 hPa) followed by a medial axis transform followed by a pruning step to compute
 a topological spine of the jet stream. In the above figure the segmentation is bound by black
 lines, wind speed is shown by pseudocolor, and topological spine is shown as a
-green line.
+green line in the northern hemisphere and a blue line in the southern hemisphere.
 
-## Sinuosity defined
-![Sinuosity defined](/images/tut_demo_sub_sinuosity_000166.png)
+## Sinuosity
+![Sinuosity defined](/images/deb_sinuosity_000026.png)
 We compute the sinuosity by dividing the length along the topological spine by
-the length between it's most easterly and westerly points. Ties in the
-end-points are resolved by taking the longer length between most easterly and
-westerly points. Lengths are calculated using Vincenty's formula for great
+the length of an arc of parallel latitude between hte most westerly and easterly
+longitude at the mean latitude.
+Length along the spine is calculated using Vincenty's formula for great
 circle distance. In the above figure the green line shows the spine and the
 yellow line shows the distance between westerly and easterly points.
 
@@ -36,11 +36,12 @@ input dataset. A second app can be used to load this table and plot the
 results as shown in the above figure.
 
 ## How to run the code
+On cori the code can be run using the included `run_demo_cori.sh` script on a compute node.
 
 ```bash
 mpiexec -np 10 ./teca_jet_stream_sinuosity \
     --input_regex=/home/bloring/work/teca/jet_stream_data/cam5_1_amip_run2'.*\.nc'  \
-    --output_file=tut_demo_30/sinuosity.bin --area_threshold 7.e6
+    --output_file=sinuosity.bin --area_threshold 7.e6
 
-python plot_sinuosity.py tut_demo_30/sinuosity.bin tut_demo_30/sinuosity.png
+python plot_sinuosity.py sinuosity.bin sinuosity.png
 ```
