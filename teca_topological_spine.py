@@ -1,5 +1,4 @@
 from teca import *
-from copy import deepcopy
 import numpy as np
 from skimage.morphology import medial_axis as ski_medial_axis
 from skimage.measure import label as ski_label
@@ -123,8 +122,10 @@ class teca_topological_spine(teca_python_algorithm):
         phase of the TECA pipeline.
         """
         def execute(port, data_in, req):
-            sys.stderr.write('.')
-            sys.stderr.flush()
+
+            if self.verbose:
+                sys.stderr.write('.')
+                sys.stderr.flush()
 
             # get the input as a mesh
             mesh = as_teca_cartesian_mesh(data_in[0])
@@ -188,14 +189,6 @@ class teca_topological_spine(teca_python_algorithm):
                 # mask out all but the current component
                 mmedax = np.where(np.logical_and((imrelab == comp_id), (medax > 0)), 1, 0)
 
-                #import matplotlib.pyplot as plt
-                #plt.imshow(np.where(imrelab == comp_id, 1, 0))
-                #plt.title('input labels %d '%(comp_id))
-                #plt.show()
-                #plt.imshow(mmedax)
-                #plt.title('input mmedax')
-                #plt.show()
-
                 # calculate the spine
                 try:
                     graph = graph_nodes(gscalar, mmedax, lat, lon)
@@ -220,18 +213,6 @@ class teca_topological_spine(teca_python_algorithm):
 
                 # add to the result
                 spines.append((comp_id, (path_i, path_j)))
-
-                #import matplotlib.pyplot as plt
-                #cmap = plt.get_cmap('cool')
-                #cmap.set_under((0.,0.,0.,0.))
-                #cmap.set_over((0.,0.,1.,1.))
-                #plt.imshow(mmedax,cmap=cmap,vmin=0.25,vmax=0.75)
-                #plt.contour(np.where(imrelab == comp_id, 1, 0), [0.125], colors='k')
-                #plt.plot([ng, ng], [0, nlat], 'g')
-                #plt.plot([nlon+ng, nlon+ng], [0, nlat], 'g')
-                #plt.plot(path_i + ng, path_j, 'r', linewidth=2)
-                #plt.title('medax comp_id=%d'%(comp_id))
-                #plt.show()
 
             if self.plot:
                 # make figures for the tutorial/demo
