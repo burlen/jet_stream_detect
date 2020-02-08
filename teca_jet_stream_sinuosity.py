@@ -41,12 +41,13 @@ def great_circle_vincenty(deg_lat_0, deg_lon_0, deg_lat_1, deg_lon_1, R=Re):
 
     return R*sig
 
-def parallel_distance(lat, R = Re):
+def parallel_distance(lat, deg_lon_0, deg_lon_1, R = Re):
     """ Calculates the length of a parallel at the given latitude `lat' """
 
     lat_rad = pi_over_180 * lat
+    dlon_rad = pi_over_180 * (deg_lon_1 - deg_lon_0)
 
-    return 2 * pi * R * np.cos(lat_rad)
+    return dlon_rad * R * np.cos(lat_rad)
 
 
 
@@ -126,12 +127,18 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                 lat_i = lat[i]
                 lon_i = lon[i]
 
-                # calculate the mean latitude of the spine
+                # calculate the mean latitude of the spine, and the most
+                # easterly and westerly longitude. this will be used to
+                # calculate the length along a parallel
                 j = np.where(lat_i >= 0.)[0]
                 mean_lat_nh = 0. if len(j) == 0 else np.mean(lat_i[j])
+                lon_0_nh = 0. if len(j) == 0 else np.min(lon_i[j])
+                lon_1_nh = 0. if len(j) == 0 else np.max(lon_i[j])
 
                 j = np.where(lat_i < 0.)[0]
                 mean_lat_sh = 0. if len(j) == 0 else np.mean(lat_i[j])
+                lon_0_sh = 0. if len(j) == 0 else np.min(lon_i[j])
+                lon_1_sh = 0. if len(j) == 0 else np.max(lon_i[j])
 
                 # work feature by feature
                 comp_0 = np.min(comp_i)
@@ -177,12 +184,14 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                     gid_i = 1000000*step_i + gid
 
                     # calculate sinuosity
-                    direct_len_nh = parallel_distance(mean_lat_nh)
+                    direct_len_nh = parallel_distance(mean_lat_nh, \
+                         lon_0_nh, lon_1_nh)
+
                     sinuosity_nh = arc_len_nh/direct_len_nh
 
                     # put it int the output dataset
-                    table_out << step_i << time_i << gid_i << 0 << mean_lat_nh << \
-                            arc_len_nh << direct_len_nh << sinuosity_nh
+                    table_out << step_i << time_i << gid_i << 0 << mean_lat_nh \
+                        << arc_len_nh << direct_len_nh << sinuosity_nh
 
                     gid += 1
 
@@ -191,22 +200,24 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                     gid_i = 1000000*step_i + gid
 
                     # calculate sinuosity
-                    direct_len_sh = parallel_distance(mean_lat_sh)
+                    direct_len_sh = parallel_distance(mean_lat_sh, \
+                        lon_0_sh, lon_1_sh)
+
                     sinuosity_sh = arc_len_sh/direct_len_sh
 
-                    table_out << step_i << time_i << gid_i << 1 << mean_lat_sh << \
-                            arc_len_sh << direct_len_sh << sinuosity_sh
+                    table_out << step_i << time_i << gid_i << 1 << mean_lat_sh \
+                        << arc_len_sh << direct_len_sh << sinuosity_sh
 
                     gid += 1
 
                 # plot for the tutorial/demo
                 if self.plot:
                     if arc_len_nh > 0.:
-                        plt.plot([0, 360], [mean_lat_nh, mean_lat_nh], 'y--o', \
+                        plt.plot([lon_0_nh, lon_1_nh], [mean_lat_nh, mean_lat_nh], 'y--o', \
                             linewidth=2, mec='y', mfc=(0.,0.,0.,0.), mew=2)
 
                     if arc_len_sh > 0.:
-                        plt.plot([0, 360], [mean_lat_sh, mean_lat_sh], 'c--o', \
+                        plt.plot([lon_0_sh, lon_1_sh], [mean_lat_sh, mean_lat_sh], 'c--o', \
                             linewidth=2, mec='c', mfc=(0.,0.,0.,0.), mew=2)
 
                     plt.axis('equal')
