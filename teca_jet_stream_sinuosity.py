@@ -5,41 +5,11 @@ import sys
 import math
 
 Re = 6371.0088 #km
-pi = np.pi #3.14159265358979
+pi = np.pi
 pi_over_180 = pi/180.
 pi_over_2 = pi/2.
 
-def great_circle_distance_0(deg_lat_0, deg_lon_0, deg_lat_1, deg_lon_1, R=Re):
-
-    lat_0 = deg_lat_0*pi_over_180
-    lon_0 = deg_lon_0*pi_over_180
-
-    lat_1 = deg_lat_1*pi_over_180
-    lon_1 = deg_lon_1*pi_over_180
-
-    # use dot product to calculate the central angle.
-    # 9 trig func calls, 12 mul, 1 div, 4 add
-    rho = R
-    phi0 = pi_over_2 - lat_0
-    the0 = lon_0
-    rho_sin_phi0 = rho*np.sin(phi0)
-    x0 = rho_sin_phi0*np.cos(the0)
-    y0 = rho_sin_phi0*np.sin(the0)
-    z0 = rho*np.cos(phi0)
-
-    phi1 = pi_over_2 - lat_1
-    the1 = lon_1
-    rho_sin_phi1 = rho*np.sin(phi1)
-    x1 = rho_sin_phi1*np.cos(the1)
-    y1 = rho_sin_phi1*np.sin(the1)
-    z1 = rho*np.cos(phi1)
-
-    dp = x0*x1 + y0*y1 + z0*z1
-    sig = np.arccos(dp/(rho*rho))
-
-    return R*sig
-
-def great_circle_distance_1(deg_lat_0, deg_lon_0, deg_lat_1, deg_lon_1, R=Re):
+def great_circle_vincenty(deg_lat_0, deg_lon_0, deg_lat_1, deg_lon_1, R=Re):
 
     lat_0 = deg_lat_0*pi_over_180
     lon_0 = deg_lon_0*pi_over_180
@@ -71,8 +41,6 @@ def great_circle_distance_1(deg_lat_0, deg_lon_0, deg_lat_1, deg_lon_1, R=Re):
 
     return R*sig
 
-great_circle_distance = great_circle_distance_1
-
 def parallel_distance(lat, R = Re):
     """ Calculates the length of a parallel at the given latitude `lat' """
 
@@ -87,56 +55,16 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
     southern hemisphere. Takes as input a table containing
     the topological spine of the jet stream """
     def __init__(self):
-        self.label_variable = 'labels'
-        self.scalar_variable = None
-        self.out_file = 'skel_'
-        self.num_ghosts = 16
-        self.bounds = None
-        self.level = 0.0
+        self.out_file = 'sinuosity'
         self.plot = False
         self.interact = False
         self.dpi = 100
+        self.out_file = ''
         self.verbose = False
-        self.tex = None
 
-    def set_num_ghosts(self, n):
-        """
-        Set the maximum length of each segement in the skeleton.
-        Lower values result in a higher resolution output.
-        """
-        self.num_ghosts = n
-
-    def set_label_variable(self, var):
-        """
-        Set the name of the connected commponent labels
-        """
-        self.label_variable = var
-
-    def set_scalar_variable(self, var):
-        """
-        Set the name of a scalar field to plot (optional)
-        """
-        self.scalar_variable = var
-
-    def set_out_file(self, var):
-        """
-        Set the name of a scalar field to plot (optional)
-        """
-        self.out_file = var
-
-    def set_bounds(self, bounds):
-        """
-        Set the lat lon bounding box that jet stream is detected over
-        should be a list with the following order:
-            [lon_0, lon_1, lat_0, lat_1]
-        """
-        self.bounds = bounds
-
-    def set_level(self, level):
-        """
-        Set the pressure level where the jet stream is detected
-        """
-        self.level = level
+    def set_out_file(self, out_file):
+        """ set the prefix for debug images """
+        self.out_file = out_file
 
     def set_interact(self, interact):
         """
@@ -155,9 +83,6 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
         If true then plots are generated
         """
         self.plot = plot
-        if self.plot and get_teca_has_data():
-            tex_file = '%s/earthmap4k.png'%(get_teca_data_root())
-            self.tex = plt.imread(tex_file)
 
     def get_execute_callback(self):
         """
@@ -166,7 +91,6 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
         """
         def execute(port, data_in, req):
 
-
             # get the input
             table_in = as_teca_table(data_in[0])
 
@@ -174,10 +98,9 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
             table_out = teca_table.New()
             table_out.copy_metadata(table_in)
 
-            table_out.declare_columns(['step','time','gid', 'hemisphere', \
-                'lat_0', 'lon_0', 'lat_1', 'lon_1', 'arc_len', 'direct_len', \
-                'sinuosity'], ['l', 'd', 'l', 'i', 'd', 'd', 'd', 'd', 'd', \
-                'd', 'd'])
+            table_out.declare_columns(['step','time','gid', \
+                'hemisphere', 'mean_lat', 'arc_len', 'direct_len', \
+                'sinuosity'], ['l', 'd', 'l', 'i', 'd', 'd', 'd', 'd'])
 
             gid = 0
 
@@ -203,28 +126,22 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                 lat_i = lat[i]
                 lon_i = lon[i]
 
-                # the start and end point for each hemisphere and accumulate
-                # the arc length as we go
-                lat_s_nh = sys.float_info.max
-                lon_s_nh = sys.float_info.max
-                lat_e_nh = sys.float_info.min
-                lon_e_nh = sys.float_info.min
+                # calculate the mean latitude of the spine
+                j = np.where(lat_i >= 0.)[0]
+                mean_lat_nh = 0. if len(j) == 0 else np.mean(lat_i[j])
 
-                lat_s_sh = sys.float_info.max
-                lon_s_sh = sys.float_info.max
-                lat_e_sh = sys.float_info.min
-                lon_e_sh = sys.float_info.min
-
-                mean_lat_nh = 0
-                mean_lat_sh = 0
-
-                arc_len_nh = 0.
-                arc_len_sh = 0.
+                j = np.where(lat_i < 0.)[0]
+                mean_lat_sh = 0. if len(j) == 0 else np.mean(lat_i[j])
 
                 # work feature by feature
                 comp_0 = np.min(comp_i)
                 comp_1 = np.max(comp_i)
 
+                # calculate the arc length from each component
+                sinuosity_nh = 0.
+                sinuosity_sh = 0.
+                arc_len_nh = 0.
+                arc_len_sh = 0.
                 for comp_j in range(comp_0, comp_1+1):
 
                     j = np.where(comp_i == comp_j)[0]
@@ -233,98 +150,54 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                         sys.stderr.write('step %d comp %d missing\n'%(step_i, comp_j))
                         continue
 
-
                     lat_ij = lat_i[j]
                     lon_ij = lon_i[j]
 
                     # compute the length along this path
                     arc_len = 0.
                     for k in range(0, len(lat_ij)-1):
-                        arc_len += great_circle_distance(lat_ij[k], lon_ij[k], \
+                        arc_len += great_circle_vincenty(lat_ij[k], lon_ij[k], \
                              lat_ij[k+1], lon_ij[k+1])
 
-                    # update start, end and arc length for either souther or northern
-                    # hemisphere
-                    lat_s = lat_ij[0]
-                    lon_s = lon_ij[0]
-
-                    lat_e = lat_ij[-1]
-                    lon_e = lon_ij[-1]
-
-                    # find most easterly/westerly points, ties are broken by taking
-                    # further northern/southern lat in the northern hemisphere and further
-                    # southern/northern in the southern hemisphere.
-                    nh = True if lat_s > 0. else False
+                    # add this segment's length to either northern or southern
+                    # hemisphere total
+                    nh = True if lat_ij[0] > 0. else False
                     if nh:
-                        if (lon_s < lon_s_nh) or (np.isclose(lon_s, lon_s_nh) and \
-                            (great_circle_distance(lat_s, lon_s, lat_e_nh, lon_e_nh) > \
-                            great_circle_distance(lat_s_nh, lon_s_nh, lat_e_nh, lon_e_nh))):
-                            lat_s_nh = lat_s
-                            lon_s_nh = lon_s
-                        if (lon_e > lon_e_nh) or (np.isclose(lon_e, lon_e_nh) and \
-                            (great_circle_distance(lat_s_nh, lon_s_nh, lat_e, lon_e) > \
-                            great_circle_distance(lat_s_nh, lon_s_nh, lat_e_nh, lon_e_nh))):
-                            lat_e_nh = lat_e
-                            lon_e_nh = lon_e
-
                         arc_len_nh += arc_len
-                        mean_lat_nh = np.mean(lat_ij)
                     else:
-                        if (lon_s < lon_s_sh) or (np.isclose(lon_s, lon_s_sh) and \
-                            (great_circle_distance(lat_s, lon_s, lat_e_sh, lon_e_sh) > \
-                            great_circle_distance(lat_s_sh, lon_s_sh, lat_e_sh, lon_e_sh))):
-                            lat_s_sh = lat_s
-                            lon_s_sh = lon_s
-                        if (lon_e > lon_e_sh) or (np.isclose(lon_e, lon_e_sh) and \
-                            (great_circle_distance(lat_s_sh, lon_s_sh, lat_e, lon_e) > \
-                            great_circle_distance(lat_s_sh, lon_s_sh, lat_e_sh, lon_e_sh))):
-                            lat_e_sh = lat_e
-                            lon_e_sh = lon_e
-
                         arc_len_sh += arc_len
-                        mean_lat_sh = np.mean(lat_ij)
 
+                    # add this segment to plot
                     if self.plot:
                         plt.plot(lon_ij, lat_ij, 'g' if nh else 'b', linewidth=2)
 
 
-                # northern hemishpere
-                gid_i = 1000000*step_i + gid
-
+                # for northern hemishpere
                 if arc_len_nh > 0.:
+                    gid_i = 1000000*step_i + gid
 
-                    # calculate the direct length as the length of a parallel at the mean latitude of the jet
+                    # calculate sinuosity
                     direct_len_nh = parallel_distance(mean_lat_nh)
-
                     sinuosity_nh = arc_len_nh/direct_len_nh
 
+                    # put it int the output dataset
                     table_out << step_i << time_i << gid_i << 0 << mean_lat_nh << \
                             arc_len_nh << direct_len_nh << sinuosity_nh
 
-                    #sys.stderr.write('s= %g, %g   e= %g, %g  d=%g\n'%(lat_s_nh, lon_s_nh, lat_e_nh, lon_e_nh, great_circle_distance(-lat_s_nh, lon_s_nh, -lat_e_nh, lon_e_nh, Re)))
-                    #sys.stderr.write('NH, step=%d arc_len=%g direct_len=%g sinuosity=%g\n'%(step_i, arc_len_nh, direct_len_nh, sinuosity_nh))
-
                     gid += 1
 
-                # southern hemisphere
+                # for southern hemisphere
                 if arc_len_sh > 0.:
                     gid_i = 1000000*step_i + gid
 
-                    # calculate the direct length as the length of a parallel at the mean latitude of the jet
+                    # calculate sinuosity
                     direct_len_sh = parallel_distance(mean_lat_sh)
-
                     sinuosity_sh = arc_len_sh/direct_len_sh
-
-                    #sys.stderr.write('s= %g, %g   e= %g, %g  d=%g\n'%(lat_s_sh, lon_s_sh, lat_e_sh, lon_e_sh, great_circle_distance(lat_s_sh, lon_s_sh, lat_e_sh, lon_e_sh, Re)))
-                    #sys.stderr.write('SH, step=%d arc_len=%g direct_len=%g sinuosity=%g\n'%(step_i, arc_len_sh, direct_len_sh, sinuosity_sh))
 
                     table_out << step_i << time_i << gid_i << 1 << mean_lat_sh << \
                             arc_len_sh << direct_len_sh << sinuosity_sh
 
                     gid += 1
-
-
-                print(mean_lat_nh, mean_lat_sh)
 
                 # plot for the tutorial/demo
                 if self.plot:
@@ -341,9 +214,9 @@ class teca_jet_stream_sinuosity(teca_python_algorithm):
                     plt.title('Sinuosity NH=%g SH=%g step %d'%(sinuosity_nh, sinuosity_sh, step_i))
                     plt.xlabel('deg lon')
                     plt.ylabel('deg lat')
-                    if  self.interact:
-                        plt.show()
                     plt.savefig('%s_sinuosity_%06d.png'%(self.out_file, step_i), dpi=self.dpi)
+                    if self.interact:
+                        plt.show()
 
             return table_out
         return execute
