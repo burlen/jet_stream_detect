@@ -22,7 +22,7 @@ green line in the northern hemisphere and a blue line in the southern hemisphere
 ## Sinuosity
 ![Sinuosity defined](/images/deb_sinuosity_000026.png)
 We compute the sinuosity by dividing the length along the topological spine by
-the length of an arc of parallel latitude between hte most westerly and easterly
+the length of an arc of parallel latitude between the most westerly and easterly
 longitude at the mean latitude.
 Length along the spine is calculated using Vincenty's formula for great
 circle distance. In the above figure the green line shows the spine and the
